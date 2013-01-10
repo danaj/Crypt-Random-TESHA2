@@ -1,0 +1,9 @@
+
+- FIPS 140-1 suite
+
+- Some helper tests for determining how well things work.
+   - timer resolution
+   - distinct timer values and expectation
+   - Multi-stream correlation
+
+- Crypt::Urandom?
