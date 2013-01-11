@@ -20,6 +20,9 @@ my $_opt_need_strong = 0;
 my $_opt_weak_ok     = 0;
 
 my $_entropy_per_raw_byte = Crypt::Random::TESHA2::Config::entropy();
+# Protect against possible abuse / misconfiguration
+$_entropy_per_raw_byte = 1 if $_entropy_per_raw_byte < 1;
+$_entropy_per_raw_byte = 7 if $_entropy_per_raw_byte > 7;
 my $_hashalg = \&sha512;
 my $_pool_size = 512;
 my $_nehi = 0;            # A 64-bit counter

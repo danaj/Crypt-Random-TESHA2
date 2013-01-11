@@ -25,4 +25,11 @@ __END__
 
 Crypt::Random::TESHA2::Config - Configuration data
 
+=head1 FUNCTIONS
+
+=head2 entropy
+
+Returns a number of bits per byte of raw entropy expected.  This is used
+internally.
+
 =cut
