@@ -22,6 +22,10 @@ WriteMakefile1(
                      },
 
     META_MERGE    => {
+                      resources  => {
+                       homepage   => 'https://github.com/danaj/Crypt-Random-TESHA2',
+                       repository => 'https://github.com/danaj/Crypt-Random-TESHA2',
+                       },
                      },
     MIN_PERL_VERSION => 5.006002,
 );

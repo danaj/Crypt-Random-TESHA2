@@ -19,3 +19,4 @@ t/92-release-pod-coverage.t
 t/93-release-kwalitee.t
 examples/TrulyRandom.pm
 examples/threads.pl
+.travis.yml
