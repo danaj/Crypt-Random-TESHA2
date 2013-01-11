@@ -4,6 +4,7 @@ use warnings;
 use Carp qw/croak confess carp/;
 use Time::HiRes qw/gettimeofday usleep/;
 use Digest::SHA qw/sha256 sha512/;
+use Crypt::Random::TESHA2::Config;
 
 BEGIN {
   $Crypt::Random::TESHA2::AUTHORITY = 'cpan:DANAJ';
@@ -11,11 +12,14 @@ BEGIN {
 }
 
 use base qw( Exporter );
-our @EXPORT_OK = qw(  random_bytes  random_values  irand  rand  );
+our @EXPORT_OK = qw( random_bytes random_values irand rand is_strong );
 our %EXPORT_TAGS = (all => [ @EXPORT_OK ]);
 our @EXPORT = qw( );  # nothing by default
 
-my $_entropy_per_raw_byte = 6.0;
+my $_opt_need_strong = 0;
+my $_opt_weak_ok     = 0;
+
+my $_entropy_per_raw_byte = Crypt::Random::TESHA2::Config::entropy();
 my $_hashalg = \&sha512;
 my $_pool_size = 512;
 my $_nehi = 0;            # A 64-bit counter
@@ -29,7 +33,28 @@ if (!defined sha512("test")) {
   $_hashalg = \&sha256;
 }
 
+sub import {
+  my @options;
 
+  @options = grep { $_ !~ /^[-:]?weak$/i } @_;
+  $_opt_weak_ok = 1 if @options != @_;
+  @_ = @options;
+
+  @options = grep { $_ !~ /^[-:]?strong$/i } @_;
+  $_opt_need_strong = 1 if @options != @_;
+  @_ = @options;
+
+  croak "TESHA2 is not a strong randomness source on this platform"
+    if $_opt_need_strong && !is_strong();
+
+  goto &Exporter::import;
+}
+
+# Returns 1 if our installtion-time entropy measurements indicated we could
+# get enough entropy to make this method work on this platform.
+sub is_strong {
+  return ($_entropy_per_raw_byte > 1.0) ? 1 : 0;
+}
 
 # Return $n random 32-bit values
 sub random_values {
@@ -59,6 +84,9 @@ sub random_bytes {
     my $nbytes = 4 + int($_C/$_entropy_per_raw_byte) + 1;
     my $S = join("", map { _get_random_byte() } 1 .. $nbytes);
     $_pool = $_hashalg->($S);
+
+    carp "TESHA2 is not a strong randomness source on this platform"
+      if !$_opt_weak_ok && !is_strong();
   }
   my $X = '';
   while (length($X) < $n) {
@@ -193,17 +221,38 @@ O/S supplied entropy source such as /dev/random or the Win32 Crypt API.>
   my $r2 = rand(1000);  # floating point in range [0,1000).
 
 
+  # croak if installation determined we couldn't generate enough entropy
+  use Crypt::Random::TESHA2 ':strong';
+
+  # No warnings even if we are a weak source
+  use Crypt::Random::TESHA2 ':weak';
+
+  # Ask for yourself
+  die "No key for you!" unless Crypt::Random::TESHA2::is_strong();
+
+
 =head1 DESCRIPTION
 
 Generate random numbers using entropy gathered from timer / scheduler jitter.
 
-This can be used to generate non-pseudorandom seed data to feed to a PRNG
-(e.g. C<srand>/C<rand>, L<Math::Random::MT>, etc.) or CSPRNG (e.g.
-L<Math::Random::ISAAC> or AES-CTR).  You may use it directly or as part of a
-random source module that first checks for O/S randomness sources.
+This can be used to generate non-pseudorandom data to seed a PRNG (e.g.
+C<srand>/C<rand>, L<Math::Random::MT>, etc.) or CSPRNG (e.g. AES-CTR or
+L<Math::Random::ISAAC>).  You may use it directly or as part of a random
+source module that first checks for O/S randomness sources.
 
 Only Perl CORE modules are used, making this very portable.  However, systems
 must have a high resolution timer and support C<usleep> from L<Time::HiRes>.
+
+At installation time, measurements are taken of the estimated entropy gathered
+by the timer differences.  If the results indicated we could not get good
+results, then the module will consider itself "weak".  On the first use of
+any of the functions that return randomness (e.g. random_bytes), the module
+will carp about not being a strong randomness source.  However, two special
+options, ":strong" and ":weak" may be given to the importer to change this
+behavior.  If ":strong" is used, then the module will croak.  If ":weak" is
+used, then no carp will be generated.  The function C<is_strong> can be used
+at any time for finer control.  Note that this should be an unusual case, and
+neither flag has any effect if the module considers itself strong.
 
 
 =head1 FUNCTIONS
@@ -227,29 +276,39 @@ Returns a single random 32-bit integer in the range [0,4294967295].
 Returns a random float greater than or equal to 0 and less than the value of
 the argument.  If no argument is given or the argument is zero, 1 is used.
 This has an identical API as system rand, though of course there is no
-associated srand function.
+associated srand function.  The result has 32 bits of randomness.
+
+=head2 is_strong
+
+Returns 0 if the installation procedure determined that not enough entropy
+could be gathered on this system.  Returns 1 if it was able.  If 0 is
+returned, then the bytes returned may be no better than a CSPRNG using a
+convoluted time-based reseed every bit.
 
 
 =head1 METHOD
 
-The underlying entropy method is using timing differences between usleep calls.
-We wrap usleep calls of varying intervals along with some Perl hash processing
-inside microsecond timer calls.  The two values are xored.  This is the raw
-entropy source.  Eight of these, along with the current time, are fed to a
-SHA-256 which can be added to an entropy pool.
+The underlying entropy gathering is done using timing differences between
+usleep calls.  We wrap usleep calls of varying intervals along with some
+Perl hash processing inside microsecond timer calls.  The two values are
+xored.  This is the raw entropy source.  Eight of these, along with the
+current time, are fed to a SHA-256 which can be added to an entropy pool.
+
+Measurements of the raw timer entropy (just the timing differences -- no
+hashes, time, counters, xors, or entropy pool) on systems I have available
+indicate 1.5 to 4 bits of entropy per usleep.  The installation procedure
+does a measurement of the 0-order entropy gathered from the raw timing
+process, halves it, limits to the range 1/8 - 7/8, and uses that as the
+estimated entropy gathered.
 
 The actual output random bytes are generated by an entropy pool that uses
-SHA-512 or SHA-256.  This adds data as needed from the above method (6 bits per
-result), then extracts bits as needed to make the output bytes (again using
-a cryptographic hash and a counter, which means the actual entropy pool is
-not exposed).
+SHA-512 or SHA-256.  This adds data as needed from the above method, then
+extracts bits as needed to make the output bytes (again using a cryptographic
+hash and a counter, which means the entropy pool is not exposed).
 
 The result will easily pass most stream randomness tests (e.g. FIPS-140, ENT,
-TestU01 Rabbit), but that is a given based on the last entropy pool stage,
-so does not measure the actual entropy.  Measurements of the raw timer entropy
-(just the xors -- no hashes, time, counters, or entropy pool) on systems I
-have available indicate 1.5 to 4 bits of entropy per usleep.  The pool assumes
-we generate 0.75 bits per usleep.
+TestU01 Rabbit), but that is a given based on the last entropy pool stage, so
+this just shows we provide decorrelated output, not that we make a good seed.
 
 
 =head1 LIMITATIONS
@@ -272,7 +331,7 @@ Performance is slow (about 10,000 times slower than L<Math::Random::ISAAC::XS>),
 making this something best to be used to seed a PRNG or CSPRNG, rather than
 using directly.  On newer Linux systems and Win32 it runs about 10,000 bits
 per second.  Cygwin runs about 1000 bits per second.  Older systems will run
-slower of course, such as an old HPPA system I use that runs at 50 bits/s.
+slower of course, such as an old HPPA system I use that runs at 40 bits/s.
 Much of the time is spent sleeping.
 
 Gathering entropy with this method depends on high resolution timers.  If the
@@ -286,11 +345,9 @@ the desire for multiple entropy sources.
 
 Because of the use of SHA-2 hashes along with an entropy pool using a counter,
 the output stream will pass randomness tests (e.g. FIPS-140, ENT,
-TestU01 Rabbit) even if there is I<no> underlying entropy.  We should catch
-cases like this in the test suite, but it doesn't have a good actual-entropy
-measurement system.  In a catastrophic breakdown, the result becomes a
-CSPRNG (SHA-512 hash with counter) using a convoluted time-based reseed
-every 6 bits.
+TestU01 Rabbit) even if there is I<no> underlying entropy.  The installation
+measurements should indicate whether this is happening, but it doesn't measure
+everything.
 
 
 =head1 AUTHORS
