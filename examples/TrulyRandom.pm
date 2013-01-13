@@ -30,7 +30,7 @@ sub _roulette {
   $count &= 0x7;
   $ocount = $count;
   $buffer = ($buffer << 3) ^ $count;
-  return $buffer;
+  return ($buffer & 0xFFFFFFFF);
 }
 
 sub truly_random_value {
@@ -69,9 +69,9 @@ TrulyRandom - Generate non-pseudo random numbers in pure Perl
 
 =head1 DESCRIPTION
 
-The B<TrulyRandom> module provides an ability to generate truly random
-numbers from within Perl programs.
-The source of the randomness is from interrupt timing discrepancies.
+The B<TrulyRandom> module provides an ability to generate non-pseudo random
+32-bit numbers from within Perl programs.  The source of the randomness
+is from interrupt timing discrepancies.
 
 
 =head1 EXAMPLE
@@ -84,7 +84,9 @@ This code uses only CORE Perl code, but needs Time::HiRes::ualarm which is
 not supported on Win32.
 
 The name is a bit misleading, as this technique generates decent entropy only
-on select platforms.
+on select platforms.  My understanding is that one of the primary authors,
+Matt Blaze, now believes this to be an obsolete method, and O/S sources such
+as /dev/random are the proper solution.
 
 This implementation is based on version 1 of TrueRand, which had numerous
 issues and was superseded by TrueRand 2.1.  The expected entropy for each
@@ -94,15 +96,48 @@ mixing, as well as mixing the result of multiple raw calls to create one
 result.  The documentation specifically warns to not use the raw call (hence
 this earlier version does exactly what the author now indicates not to do).
 
-More sophisticated systems like HAVEGE (L<http://www.issihosts.com/haveged/>)
-generate randomness with more sources and run much faster.  These are meant
-to feed entropy pools, which are in turn managed and doled out via /dev/random.
-This module is userspace "voodoo entropy" and really shouldn't be used.
+More sophisticated systems like L<HAVEGE|http://www.issihosts.com/haveged/>
+and L<EGD|http://egd.sourceforge.net/> generate randomness with more sources
+and run much faster.  These are meant to feed entropy pools, which are in
+turn managed and doled out via /dev/random.  This module is userspace
+"I<voodoo entropy>" and really shouldn't be used.
 
 The random numbers take a long time (in computer terms) to generate,
 so are only really useful for seeding pseudo random sequence generators.
-There are other solutions that can generate entropy from timer/scheduler jitter
-that run faster and use less CPU (e.g. L<Crypt::Random::TESHA2>).
+
+
+=head1 SEE ALSO
+
+=head2 L<Crypt::Random::TESHA2> is another module that generates non-pseudo
+random data from timer/scheduler variations.  It works on more platforms and
+runs much faster while using less CPU.  It uses SHA-256 and SHA-512 for mixing,
+as well as pushing all generated randomness through an entropy pool.
+
+=head2 L<Crypt::Random::Seed> is a simple module that finds the best strong
+random source available and uses it to return random data.
+
+=head2 L<Math::Random::Source> is a very flexible and oft-used module that
+finds available entropy sources and presents a unified interface for getting
+random data from them.
+
+=head2 L<Crypt::URandom> is a simple module that gets the best non-blocking
+random source available and uses it to return random data.
+
+=head2 L<Bytes::Random::Secure> is a straightforward module that (1) finds
+a good source of strong randomness, and (2) uses it to seed
+L<Math::Random::ISAAC> (a cryptographically secure pseudo-random number
+generator).  This is a very good combination for most purposes.  It provides
+a nice API.
+
+=head2 L<Math::Random::Secure> is similar to L<Bytes::Random::Secure>, but
+offers a different set of features.
+
+=head2 L<Crypt::Random> offers an interface to random values in arbitrary
+bigint ranges, using the best source of randomness it finds -- typically
+/dev/random.  It uses the L<Math::Pari> module which creates portability
+issues, and its use of /dev/random for all activities means it blocks
+on many operations, making it unsuitable for embedded systems unless they
+have an entropy daemon running.
 
 
 =head1 COPYRIGHT
