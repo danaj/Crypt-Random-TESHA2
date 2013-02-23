@@ -1,5 +1,10 @@
 Revision history for Perl extension Crypt::Random::TESHA2
 
+0.02  ?
+
+      - Modify t/11-fips140.t to prevent a possible divide-by-zero.
+
+
 0.01  Tue Jan  8 20:00:00 PST 2013
 
       - Initial development

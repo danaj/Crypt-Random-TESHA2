@@ -15,6 +15,7 @@ my $bps;
   my $t1 = gettimeofday();
   push @rbytes, random_bytes(1) for 1..100;
   my $t2 = gettimeofday();
+  $t2++ if $t1 == $t2;  # hack to prevent divide by zero
   $bps = int(  (100 * 8) / ($t2-$t1)  );
 }
 diag "Speed: $bps bits per second";
