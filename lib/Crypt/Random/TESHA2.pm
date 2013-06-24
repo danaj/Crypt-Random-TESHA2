@@ -74,7 +74,7 @@ sub irand {
 
 # This uses an entropy pool (see Encyclopedia of Cryptography and Security,
 # volume 2, "Entropy Sources").  We use SHA-512 to handle a 512-bit pool.
-# One this this will do is ensure the input from any one byte is nicely
+# What this will do is ensure the input from any one byte is nicely
 # spread out among the 64 bytes of the pool.
 
 sub random_bytes {
