@@ -53,7 +53,7 @@ sub import {
   goto &Exporter::import;
 }
 
-# Returns 1 if our installtion-time entropy measurements indicated we could
+# Returns 1 if our installation-time entropy measurements indicated we could
 # get enough entropy to make this method work on this platform.
 sub is_strong {
   return ($_entropy_per_raw_byte > 1.0) ? 1 : 0;
