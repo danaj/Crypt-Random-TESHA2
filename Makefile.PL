@@ -78,7 +78,8 @@ sub test_and_config {
       (undef, $t2) = gettimeofday();
       # Note this has nothing to do with the start time or the hash.
       my $diff = $t2 >= $t1 ? $t2-$t1 : $t2-$t1+1000000;
-      push @vars, $diff - (2+3*$bit);
+      #push @vars, $diff - (2+3*$bit);
+      push @vars, $diff;  # Don't subtract the expected usleep time here
       $str .= pack("L", $t1 ^ $t2);
       $dummy{$str . $_}++ for 1..8;
       $t1 = $t2;
