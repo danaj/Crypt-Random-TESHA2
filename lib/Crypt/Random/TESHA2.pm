@@ -8,7 +8,7 @@ use Crypt::Random::TESHA2::Config;
 
 BEGIN {
   $Crypt::Random::TESHA2::AUTHORITY = 'cpan:DANAJ';
-  $Crypt::Random::TESHA2::VERSION = '0.01';
+  $Crypt::Random::TESHA2::VERSION = '0.02';
 }
 
 use base qw( Exporter );
@@ -196,13 +196,13 @@ Crypt::Random::TESHA2 - Random numbers using timer/schedule entropy
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 
 =head1 WARNING
 
-I<This module implements userspace voodoo entropy.  You should use a proper
-O/S supplied entropy source such as /dev/random or the Win32 Crypt API.>
+I<This module implements userspace voodoo entropy.>
+You ought to use a module like L<Crypt::Random::Seed>.
 
 
 =head1 SYNOPSIS
@@ -216,7 +216,7 @@ O/S supplied entropy source such as /dev/random or the Win32 Crypt API.>
   # Get 16 random 32-bit values
   my @seeds = random_values(16);
 
-  # Get a 32-bit random integer (value between 0 and 4294967295 inclusive)
+  # Get a 32-bit random integer (value in range 0 - 4294967295 inclusive)
   my $i = irand();
 
   # rand, like system rand, with 32 bits of randomness.
@@ -241,10 +241,12 @@ Generate random numbers using entropy gathered from timer / scheduler jitter.
 This can be used to generate non-pseudorandom data to seed a PRNG (e.g.
 C<srand>/C<rand>, L<Math::Random::MT>, etc.) or CSPRNG (e.g. AES-CTR or
 L<Math::Random::ISAAC>).  You may use it directly or as part of a random
-source module that first checks for O/S randomness sources.
+source module that first checks for O/S randomness sources such as
+L<Crypt::Random::Seed>.
 
 Only Perl CORE modules are used, making this very portable.  However, systems
-must have a high resolution timer and support C<usleep> from L<Time::HiRes>.
+must have both C<usleep> and the high resolution timer interface from
+L<Time::HiRes>.
 
 At installation time, measurements are taken of the estimated entropy gathered
 by the timer differences.  If the results indicated we could not get good
@@ -254,8 +256,8 @@ will carp about not being a strong randomness source.  However, two special
 options, ":strong" and ":weak" may be given to the importer to change this
 behavior.  If ":strong" is used, then the module will croak.  If ":weak" is
 used, then no carp will be generated.  The function C<is_strong> can be used
-at any time for finer control.  Note that this should be an unusual case, and
-neither flag has any effect if the module considers itself strong.
+at any time for finer control.  Most desktop UNIX/Windows machines will
+give strong results from this method.
 
 
 =head1 FUNCTIONS
@@ -334,8 +336,8 @@ Performance is slow (about 10,000 times slower than L<Math::Random::ISAAC::XS>),
 making this something best to be used to seed a PRNG or CSPRNG, rather than
 using directly.  On newer Linux systems and Win32 it runs about 10,000 bits
 per second.  Cygwin runs about 1000 bits per second.  Older systems will run
-slower of course, such as an old HPPA system I use that runs at 40 bits/s.
-Much of the time is spent sleeping.
+slower of course -- an old HPPA system was tested at 40 bits/s.  Much of the
+time is spent sleeping.
 
 Gathering entropy with this method depends on high resolution timers.  If the
 timers have low resolution, especially if we had a system with very fast
@@ -362,6 +364,11 @@ Dana Jacobsen E<lt>dana@acm.orgE<gt>
 
 =over 4
 
+=item L<Crypt::Random::Seed>
+      This module supplies the best randomness source available, with this
+      as the fallback if no O/S sources could be found.  In most cases you
+      should use L<Crypt::Random::Seed> instead of this module.
+
 =item Encyclopedia of Cryptography and Security, volume 2, "Entropy Sources".
       The entropy pool implemented in this module follows this design.
 
@@ -369,8 +376,7 @@ Dana Jacobsen E<lt>dana@acm.orgE<gt>
       Uses multiple methods to gather entropy and feed it to the O/S, which
       can measure it and add it to a pool.  Highly recommended for embedded
       or network devices that don't have good external interactions, or when
-      running programs that use a lot of entropy (e.g. anything that uses
-      L<Crypt::Random>).
+      running programs that use a lot of entropy.
 
 =item timer_entropyd (L<http://www.vanheusden.com/te/>)
       Uses a related method (jitter in timing data between usleeps) as this
